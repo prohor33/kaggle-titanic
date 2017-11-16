@@ -2,11 +2,23 @@
 
 import csv
 import numpy as np
+from sklearn import preprocessing
+from sklearn import metrics
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.feature_selection import RFE
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+
 
 # PassengerId,Pclass,Name,Sex,Age,SibSp,Parch,Ticket,Fare,Cabin,Embarked
 types = []
-train = []
-test = []
+
+X = np.empty((0, 6), float)
+y = np.array([])
+
+X_test = np.empty((0, 6), float)
+y_test = np.array([])
 
 tickets = set()
 cabins = set()
@@ -20,81 +32,144 @@ with open('data/train.csv', newline='') as f:
             types = line
             continue
 
-        args = np.array([])
+        x = np.array([])
+        y_val = 0
 
-        for k, x in enumerate(line):
+        for k, v in enumerate(line):
             t = types[k]
 
             if t == "Name":
                 continue
             elif t == "Ticket":
-                tickets.add(x)
+                tickets.add(v)
                 continue
             elif t == "Cabin":
-                cabins.add(x)
+                cabins.add(v)
                 continue
             elif t == "Embarked":
-                embarked.add(x)
+                embarked.add(v)
                 continue
 
-            if x == '':
-                args = np.append(args, -1)
+            if v == '':
+                x = np.append(x, -1)
                 continue
 
             if t == "Survived":
-                args = np.append(args, int(1 if int(x) == 1 else -1))
+                y_val = np.append(x, int(1 if int(v) == 1 else -1))
             if t == "Pclass" or t == "SibSp" or t == "Parch":
-                args = np.append(args, int(x))
+                x = np.append(x, int(v))
             elif t == "Sex":
-                args = np.append(args, int(x == "male"))
+                x = np.append(x, int(v == "male"))
             elif  t == "Age" or t == "Fare":
-                args = np.append(args, float(x))
+                x = np.append(x, float(v))
 
-        if len(args) == 0:
+        if len(x) == 0:
             continue
 
         if i < 500:
-            train.append(args)
+            X = np.append(X, [x], axis=0)
+            y = np.append(y, y_val)
         else:
-            test.append(args)
+            X_test = np.append(X_test, [x], axis=0)
+            y_test = np.append(y_test, y_val)
 
 # Survived
 # Pclass,Sex,Age,SibSp,Parch,Fare
+#X = preprocessing.normalize(X, axis=0)
+#X_test = preprocessing.normalize(X_test, axis=0)
 
-#print(train)
+# Отбор признаков
+model = ExtraTreesClassifier()
+model.fit(X, y)
+# display the relative importance of each attribute
+print(model.feature_importances_)
 
-w = []
-for x in train[0][1:]:
-    w.append(0.0)
 
-tetta  = 100
-for t in train:
-    x = t[1:]
-    y = t[0]
-    model = np.dot(w, x)
-    if model * y <= 0:
-        w += np.dot(x, tetta * y)
-        #print('+ w = ', w, ', y = ', y, ', model = ', model, ', x = ', x)
-    #else:
-        #print('  w = ', w, ', y = ', y, ', model = ', model, ', x = ', x)
-    #w -= np.dot(args, tetta * (model - answer))
-    #print('new w = ', w, '\n')
+model = LogisticRegression()
+# create the RFE model and select 3 attributes
+rfe = RFE(model, 3)
+rfe = rfe.fit(X, y)
+# summarize the selection of the attributes
+print(rfe.support_)
+print(rfe.ranking_)
+print("\n\n")
 
-all = 0
-ok = 0
-for t in test:
-    x = t[1:]
-    y = t[0]
-    model = np.dot(w, x)
-    if model * y <= 0:
-        print('+ w = ', w, ', y = ', y, ', model = ', model, ', x = ', x)
-    else:
-        print('  w = ', w, ', y = ', y, ', model = ', model, ', x = ', x)
-        ok += 1
-    all += 1
+print('Логистическая регрессия')
+model = LogisticRegression()
+model.fit(X, y)
+print(model)
+# make predictions
+expected = y
+predicted = model.predict(X)
+# summarize the fit of the model
+print(metrics.classification_report(expected, predicted))
+print(metrics.confusion_matrix(expected, predicted))
+print("Проверка:")
+predicted_test = model.predict(X_test)
+print(metrics.classification_report(y_test, predicted_test))
+print("\n\n")
 
-print('result: ', ok, '/', all, ' = ', int(ok / all * 100), '%')
+print("Наивный Байес")
+model = GaussianNB()
+model.fit(X, y)
+print(model)
+# make predictions
+expected = y
+predicted = model.predict(X)
+# summarize the fit of the model
+print(metrics.classification_report(expected, predicted))
+print(metrics.confusion_matrix(expected, predicted))
+print("Проверка:")
+predicted_test = model.predict(X_test)
+print(metrics.classification_report(y_test, predicted_test))
+print("\n\n")
 
-#for t in train:
-#    print(t)
-print('Hello World!')
+print("K-ближайших соседей")
+# fit a k-nearest neighbor model to the data
+model = KNeighborsClassifier()
+model.fit(X, y)
+print(model)
+# make predictions
+expected = y
+predicted = model.predict(X)
+# summarize the fit of the model
+print(metrics.classification_report(expected, predicted))
+print(metrics.confusion_matrix(expected, predicted))
+print("Проверка:")
+predicted_test = model.predict(X_test)
+print(metrics.classification_report(y_test, predicted_test))
+print("\n\n")
+
+print("Деревья решений")
+from sklearn.tree import DecisionTreeClassifier
+# fit a CART model to the data
+model = DecisionTreeClassifier()
+model.fit(X, y)
+print(model)
+# make predictions
+expected = y
+predicted = model.predict(X)
+# summarize the fit of the model
+print(metrics.classification_report(expected, predicted))
+print(metrics.confusion_matrix(expected, predicted))
+print("Проверка:")
+predicted_test = model.predict(X_test)
+print(metrics.classification_report(y_test, predicted_test))
+print("\n\n")
+
+print("Метод опорных векторов")
+from sklearn.svm import SVC
+# fit a SVM model to the data
+model = SVC()
+model.fit(X, y)
+print(model)
+# make predictions
+expected = y
+predicted = model.predict(X)
+# summarize the fit of the model
+print(metrics.classification_report(expected, predicted))
+print(metrics.confusion_matrix(expected, predicted))
+print("Проверка:")
+predicted_test = model.predict(X_test)
+print(metrics.classification_report(y_test, predicted_test))
+print("\n\n")
